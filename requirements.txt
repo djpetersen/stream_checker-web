@@ -1,0 +1,20 @@
+# Web API Framework
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Or use FastAPI instead:
+# fastapi>=0.104.0
+# uvicorn>=0.24.0
+
+# Queue Management (optional - start simple without queue)
+# redis>=5.0.0
+# rq>=1.15.0
+
+# Stream Checker Library (install from parent directory or git)
+# stream-checker @ file:///Users/davidpetersen/Documents/cursor_projects/stream_checker
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# For development
+pytest>=7.4.0

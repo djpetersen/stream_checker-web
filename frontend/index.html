@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Stream Checker</h1>
+            <p>Check the health and quality of audio streams</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <form id="streamForm">
+                    <div class="form-group">
+                        <label for="streamUrl">Stream URL:</label>
+                        <input 
+                            type="url" 
+                            id="streamUrl" 
+                            name="url" 
+                            placeholder="https://example.com/stream.mp3" 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phase">Test Phase:</label>
+                        <select id="phase" name="phase">
+                            <option value="1">Phase 1: Connectivity & Metadata</option>
+                            <option value="2">Phase 2: Player Connectivity</option>
+                            <option value="3">Phase 3: Audio Analysis</option>
+                            <option value="4" selected>Phase 4: Full Analysis (Recommended)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" id="submitBtn">Check Stream</button>
+                </form>
+            </section>
+
+            <section class="status-section" id="statusSection" style="display: none;">
+                <h2>Status</h2>
+                <div id="statusMessage"></div>
+                <div id="progressBar" class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </section>
+
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h2>Results</h2>
+                <div id="resultsContent"></div>
+            </section>
+
+            <section class="stats-section">
+                <h2>Your Usage</h2>
+                <div id="statsContent">Loading...</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
