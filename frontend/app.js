@@ -39,12 +39,79 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
 });
 
+// Handle select all / deselect all buttons and checkbox styling
+document.addEventListener('DOMContentLoaded', () => {
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const testCheckboxes = document.querySelectorAll('input[name="tests"]');
+    
+    // Function to update checkbox styling
+    const updateCheckboxStyle = (checkbox) => {
+        const option = checkbox.closest('.test-option');
+        if (checkbox.checked) {
+            option.classList.add('checked');
+        } else {
+            option.classList.remove('checked');
+        }
+    };
+    
+    // Initialize styling for all checkboxes
+    testCheckboxes.forEach(cb => {
+        updateCheckboxStyle(cb);
+        cb.addEventListener('change', () => {
+            updateCheckboxStyle(cb);
+        });
+    });
+    
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+            testCheckboxes.forEach(cb => {
+                cb.checked = true;
+                updateCheckboxStyle(cb);
+            });
+        });
+    }
+    
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+            testCheckboxes.forEach(cb => {
+                cb.checked = false;
+                updateCheckboxStyle(cb);
+            });
+        });
+    }
+    
+    // Auto-select connectivity if any other test is selected
+    testCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            updateCheckboxStyle(cb);
+            if (cb.id !== 'test-connectivity' && cb.checked) {
+                const connectivityCheckbox = document.getElementById('test-connectivity');
+                connectivityCheckbox.checked = true;
+                updateCheckboxStyle(connectivityCheckbox);
+            }
+        });
+    });
+});
+
 // Handle form submission
 document.getElementById('streamForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const url = document.getElementById('streamUrl').value;
-    const phase = parseInt(document.getElementById('phase').value);
+    
+    // Get selected tests from checkboxes
+    const selectedTests = {};
+    document.querySelectorAll('input[name="tests"]:checked').forEach(cb => {
+        selectedTests[cb.value] = true;
+    });
+    
+    // Validate: at least one test must be selected
+    if (Object.keys(selectedTests).length === 0) {
+        alert('Please select at least one test to run.');
+        return;
+    }
+    
     const submitBtn = document.getElementById('submitBtn');
     
     // Disable submit button
@@ -77,7 +144,7 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ url, phase }),
+            body: JSON.stringify({ url, tests: selectedTests }),
             // Add timeout
             signal: AbortSignal.timeout(300000) // 5 minutes timeout
         });
@@ -87,10 +154,16 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+            const errorMsg = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+            throw new Error(errorMsg);
         }
         
         const data = await response.json();
+        
+        // Validate response structure
+        if (!data || (!data.results && !data.test_run_id)) {
+            throw new Error('Invalid response format from server');
+        }
         
         // Show results
         displayResults(data);
@@ -115,9 +188,12 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
                           '1. The API server is running\n' +
                           '2. The API URL is correct\n' +
                           '3. CORS is properly configured\n' +
-                          '4. Your network connection';
+                          '4. Your network connection\n\n' +
+                          `Current API URL: ${API_BASE_URL}`;
+        } else if (error.message.includes('Invalid response')) {
+            errorMessage = `Invalid response from server. The API may have encountered an error.\n\nAPI URL: ${API_BASE_URL}`;
         } else {
-            errorMessage = error.message;
+            errorMessage = `${error.message}\n\nAPI URL: ${API_BASE_URL}`;
         }
         
         statusMessage.textContent = `✗ Error: ${errorMessage}`;
@@ -129,10 +205,9 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
         document.getElementById('resultsContent').innerHTML = `
             <div class="result-item" style="border-left-color: #dc3545;">
                 <h3 style="color: #dc3545;">Error</h3>
-                <p>${errorMessage}</p>
+                <p style="white-space: pre-line;">${errorMessage}</p>
                 <p style="font-size: 12px; color: #666; margin-top: 10px;">
-                    API URL: ${API_BASE_URL}<br>
-                    Error: ${error.message}
+                    Error Details: ${error.message || 'Unknown error'}
                 </p>
             </div>
         `;
@@ -159,6 +234,7 @@ function displayResults(data) {
             <strong>Test Run ID:</strong> ${results.test_run_id || 'N/A'}<br>
             <strong>Stream ID:</strong> ${results.stream_id || 'N/A'}<br>
             <strong>Status:</strong> <span class="status-${data.status || 'completed'}">${data.status || 'completed'}</span>
+            ${results.tests_completed ? `<br><strong>Tests Completed:</strong> ${results.tests_completed.join(', ')}` : ''}
         </div>
     `;
     
@@ -397,17 +473,38 @@ function getHttpStatusText(status) {
 
 async function loadStats() {
     try {
-        const response = await fetch(`${API_BASE_URL}/requests/stats`);
+        const response = await fetch(`${API_BASE_URL}/requests/stats`, {
+            signal: AbortSignal.timeout(5000)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         const statsContent = document.getElementById('statsContent');
-        statsContent.innerHTML = `
-            <p><strong>IP Address:</strong> ${data.ip_address}</p>
-            <p><strong>Requests (Last Hour):</strong> ${data.requests_last_hour}</p>
-            <p><strong>Requests (Last Day):</strong> ${data.requests_last_day}</p>
-            <p><strong>Remaining (This Hour):</strong> ${data.remaining_this_hour} / ${data.rate_limit_per_hour}</p>
-        `;
+        if (statsContent) {
+            statsContent.innerHTML = `
+                <p><strong>IP Address:</strong> ${data.ip_address}</p>
+                <p><strong>Requests (Last Hour):</strong> ${data.requests_last_hour}</p>
+                <p><strong>Requests (Last Day):</strong> ${data.requests_last_day}</p>
+                <p><strong>Remaining (This Hour):</strong> ${data.remaining_this_hour} / ${data.rate_limit_per_hour}</p>
+            `;
+        }
     } catch (error) {
-        document.getElementById('statsContent').textContent = 'Error loading stats';
+        const statsContent = document.getElementById('statsContent');
+        if (statsContent) {
+            let errorMsg = 'Error loading stats';
+            if (error.name === 'AbortError' || error.message.includes('timeout')) {
+                errorMsg = 'Stats request timed out. API server may be slow or unreachable.';
+            } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                errorMsg = `Unable to connect to API server at ${API_BASE_URL}. Please check if the server is running.`;
+            } else {
+                errorMsg = `Error loading stats: ${error.message}`;
+            }
+            statsContent.innerHTML = `<p style="color: #dc3545;">${errorMsg}</p>`;
+        }
+        console.error('Error loading stats:', error);
     }
 }

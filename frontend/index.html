@@ -28,13 +28,62 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="phase">Test Phase:</label>
-                        <select id="phase" name="phase">
-                            <option value="1">Phase 1: Connectivity & Metadata</option>
-                            <option value="2">Phase 2: Player Connectivity</option>
-                            <option value="3">Phase 3: Audio Analysis</option>
-                            <option value="4" selected>Phase 4: Full Analysis (Recommended)</option>
-                        </select>
+                        <label>Select Tests to Run:</label>
+                        <div class="test-options">
+                            <div class="test-option">
+                                <input type="checkbox" id="test-connectivity" name="tests" value="connectivity" checked>
+                                <label for="test-connectivity">
+                                    <span class="test-icon">🔗</span>
+                                    <span class="test-label">Basic Connectivity</span>
+                                    <span class="test-desc">HTTP connection, SSL certificate, response time</span>
+                                </label>
+                            </div>
+                            <div class="test-option">
+                                <input type="checkbox" id="test-stream-info" name="tests" value="stream_info" checked>
+                                <label for="test-stream-info">
+                                    <span class="test-icon">📊</span>
+                                    <span class="test-label">Stream Information</span>
+                                    <span class="test-desc">Bitrate, codec, sample rate, stream type</span>
+                                </label>
+                            </div>
+                            <div class="test-option">
+                                <input type="checkbox" id="test-metadata" name="tests" value="metadata" checked>
+                                <label for="test-metadata">
+                                    <span class="test-icon">🏷️</span>
+                                    <span class="test-label">Metadata</span>
+                                    <span class="test-desc">Title, genre, artist, description</span>
+                                </label>
+                            </div>
+                            <div class="test-option">
+                                <input type="checkbox" id="test-player" name="tests" value="player_test" checked>
+                                <label for="test-player">
+                                    <span class="test-icon">▶️</span>
+                                    <span class="test-label">Player Compatibility</span>
+                                    <span class="test-desc">VLC connectivity, format support</span>
+                                </label>
+                            </div>
+                            <div class="test-option">
+                                <input type="checkbox" id="test-audio" name="tests" value="audio_analysis" checked>
+                                <label for="test-audio">
+                                    <span class="test-icon">🎵</span>
+                                    <span class="test-label">Audio Quality</span>
+                                    <span class="test-desc">Silence detection, error messages, metrics</span>
+                                </label>
+                            </div>
+                            <div class="test-option">
+                                <input type="checkbox" id="test-ads" name="tests" value="ad_detection" checked>
+                                <label for="test-ads">
+                                    <span class="test-icon">📢</span>
+                                    <span class="test-label">Ad Detection</span>
+                                    <span class="test-desc">Ad markers, break tracking</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="test-actions">
+                            <button type="button" id="selectAllBtn" class="btn-link">Select All</button>
+                            <span>|</span>
+                            <button type="button" id="deselectAllBtn" class="btn-link">Deselect All</button>
+                        </div>
                     </div>
                     
                     <button type="submit" id="submitBtn">Check Stream</button>

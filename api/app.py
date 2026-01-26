@@ -99,9 +99,55 @@ def check_stream():
         if not url:
             return jsonify({"error": "URL is required"}), 400
         
-        phase = data.get("phase", 4)
-        if phase not in [1, 2, 3, 4]:
-            return jsonify({"error": "Phase must be 1-4"}), 400
+        # Handle both old format (phase) and new format (tests)
+        tests = data.get("tests")
+        phase = data.get("phase")
+        
+        # If new format (tests object), map to phase
+        if tests:
+            if not isinstance(tests, dict):
+                return jsonify({"error": "tests must be an object"}), 400
+            
+            # Validate at least one test is selected
+            if not any(tests.values()):
+                return jsonify({"error": "At least one test must be selected"}), 400
+            
+            # Auto-select connectivity if any other test is selected
+            if any(tests.get(k) for k in ["stream_info", "metadata", "player_test", "audio_analysis", "ad_detection"]):
+                tests["connectivity"] = True
+            
+            # Map tests to phase number (for backward compatibility with internal logic)
+            # Determine max phase needed based on selected tests
+            phase = 1  # Always need phase 1 for connectivity
+            if tests.get("player_test"):
+                phase = max(phase, 2)
+            if tests.get("audio_analysis"):
+                phase = max(phase, 3)
+            if tests.get("ad_detection"):
+                phase = max(phase, 4)
+        elif phase:
+            # Old format: convert phase to tests object
+            tests = {
+                "connectivity": True,
+                "stream_info": True,
+                "metadata": True,
+                "player_test": phase >= 2,
+                "audio_analysis": phase >= 3,
+                "ad_detection": phase >= 4
+            }
+            if phase not in [1, 2, 3, 4]:
+                return jsonify({"error": "Phase must be 1-4"}), 400
+        else:
+            # Default: all tests
+            tests = {
+                "connectivity": True,
+                "stream_info": True,
+                "metadata": True,
+                "player_test": True,
+                "audio_analysis": True,
+                "ad_detection": True
+            }
+            phase = 4
         
         # Get client IP
         ip_address = get_client_ip(request) or "unknown"
@@ -157,11 +203,12 @@ def check_stream():
             "test_run_id": test_run_id,
             "stream_id": stream_id,
             "stream_url": url,
-            "phase": phase
+            "tests_requested": [k for k, v in tests.items() if v],
+            "tests_completed": []
         }
         
-        # Phase 1: Connectivity
-        if phase >= 1:
+        # Connectivity (always run if selected, or if any other test is selected)
+        if tests.get("connectivity", True):
             try:
                 checker = ConnectivityChecker(
                     connection_timeout=config.get("security.connection_timeout", 30),
@@ -170,16 +217,33 @@ def check_stream():
                 )
                 phase_result = checker.check(url)
                 result.update(phase_result)
+                
+                # Remove phase from result (internal only)
+                result.pop("phase", None)
+                
+                # Only include stream_info and metadata if requested
+                if not tests.get("stream_info"):
+                    result.pop("stream_parameters", None)
+                    result.pop("stream_type", None)
+                if not tests.get("metadata"):
+                    result.pop("metadata", None)
+                
+                result["tests_completed"].append("connectivity")
+                if tests.get("stream_info"):
+                    result["tests_completed"].append("stream_info")
+                if tests.get("metadata"):
+                    result["tests_completed"].append("metadata")
+                
                 db.add_test_run(test_run_id, stream_id, 1, result)
             except Exception as e:
-                logger.error(f"Phase 1 error: {e}", exc_info=True)
+                logger.error(f"Connectivity test error: {e}", exc_info=True)
                 result["connectivity"] = {
                     "status": "error",
-                    "error": f"Phase 1 failed: {str(e)}"
+                    "error": f"Connectivity test failed: {str(e)}"
                 }
         
-        # Phase 2: Player Test
-        if phase >= 2:
+        # Player Test
+        if tests.get("player_test") and phase >= 2:
             try:
                 player_result = test_player_connectivity(
                     url,
@@ -191,19 +255,19 @@ def check_stream():
                     "stable": player_result.get("status") == "success",
                     "packet_loss_detected": False
                 }
-                result["phase"] = 2
+                result["tests_completed"].append("player_test")
                 db.add_test_run(test_run_id, stream_id, 2, result)
             except Exception as e:
-                logger.error(f"Phase 2 error: {e}", exc_info=True)
+                logger.error(f"Player test error: {e}", exc_info=True)
                 result["player_tests"] = {
                     "vlc": {
                         "status": "error",
-                        "error": f"Phase 2 failed: {str(e)}"
+                        "error": f"Player test failed: {str(e)}"
                     }
                 }
         
-        # Phase 3: Audio Analysis
-        if phase >= 3:
+        # Audio Analysis
+        if tests.get("audio_analysis") and phase >= 3:
             try:
                 analyzer = AudioAnalyzer(
                     sample_duration=config.get("stream_checker.default_sample_duration", 10),
@@ -212,17 +276,17 @@ def check_stream():
                 )
                 audio_result = analyzer.analyze(url)
                 result["audio_analysis"] = audio_result
-                result["phase"] = 3
+                result["tests_completed"].append("audio_analysis")
                 db.add_test_run(test_run_id, stream_id, 3, result)
             except Exception as e:
-                logger.error(f"Phase 3 error: {e}", exc_info=True)
+                logger.error(f"Audio analysis error: {e}", exc_info=True)
                 result["audio_analysis"] = {
                     "status": "error",
-                    "error": f"Phase 3 failed: {str(e)}"
+                    "error": f"Audio analysis failed: {str(e)}"
                 }
         
-        # Phase 4: Ad Detection
-        if phase >= 4:
+        # Ad Detection
+        if tests.get("ad_detection") and phase >= 4:
             try:
                 detector = AdDetector(monitoring_duration=30, check_interval=2.0)
                 ad_result = detector.detect(url)
@@ -232,13 +296,13 @@ def check_stream():
                 result["health_score"] = health_info["health_score"]
                 result["issues"] = health_info["issues"]
                 result["recommendations"] = health_info["recommendations"]
-                result["phase"] = 4
+                result["tests_completed"].append("ad_detection")
                 db.add_test_run(test_run_id, stream_id, 4, result)
             except Exception as e:
-                logger.error(f"Phase 4 error: {e}", exc_info=True)
+                logger.error(f"Ad detection error: {e}", exc_info=True)
                 result["ad_detection"] = {
                     "status": "error",
-                    "error": f"Phase 4 failed: {str(e)}"
+                    "error": f"Ad detection failed: {str(e)}"
                 }
                 # Still try to calculate health score with available data
                 try:

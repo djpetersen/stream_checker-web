@@ -85,6 +85,106 @@ select:focus {
     border-color: #667eea;
 }
 
+/* Test Options Checkbox UI */
+.test-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.test-option {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.2s;
+}
+
+.test-option:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.test-option input[type="checkbox"] {
+    display: none;
+}
+
+.test-option label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+
+.test-icon {
+    font-size: 24px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.test-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.test-desc {
+    font-size: 13px;
+    color: #666;
+    display: block;
+    margin-top: 4px;
+}
+
+.test-option input[type="checkbox"]:checked + label {
+    color: #667eea;
+}
+
+.test-option input[type="checkbox"]:checked + label .test-label {
+    color: #667eea;
+}
+
+/* Checked state styling - using JavaScript to toggle class instead of :has() for better browser support */
+.test-option.checked {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.test-option input[type="checkbox"]:checked + label .test-label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.test-actions {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.test-actions span {
+    margin: 0 10px;
+    color: #999;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #667eea;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 14px;
+    padding: 0;
+    margin: 0;
+    font-weight: normal;
+}
+
+.btn-link:hover {
+    color: #764ba2;
+    text-decoration: none;
+}
+
 button {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
