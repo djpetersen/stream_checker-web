@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
 import sys
+import json
 from pathlib import Path
 
 # Add parent directory to path to import stream_checker
@@ -63,6 +64,58 @@ url_validator = URLValidator(
     block_private_ips=config.get("security.block_private_ips", False),
     max_url_length=config.get("security.max_url_length", 2048)
 )
+
+
+# Custom error handlers for better JSON responses
+@app.errorhandler(405)
+def method_not_allowed(e):
+    """Return JSON error for 405 Method Not Allowed"""
+    return jsonify({
+        "error": "Method Not Allowed",
+        "message": f"The requested method is not allowed for this endpoint. Check the API documentation for the correct HTTP method.",
+        "status": 405
+    }), 405
+
+
+@app.errorhandler(404)
+def not_found(e):
+    """Return JSON error for 404 Not Found"""
+    return jsonify({
+        "error": "Not Found",
+        "message": "The requested endpoint was not found. Check the API documentation for available endpoints.",
+        "status": 404
+    }), 404
+
+
+@app.route("/", methods=["GET"])
+def root():
+    """Root endpoint - API information"""
+    return jsonify({
+        "service": "stream_checker_api",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/api/health (GET)",
+            "check_stream": "/api/streams/check (POST)",
+            "job_status": "/api/jobs/<test_run_id> (GET)",
+            "job_results": "/api/jobs/<test_run_id>/results (GET)",
+            "request_stats": "/api/requests/stats (GET)"
+        }
+    }), 200
+
+
+@app.route("/api", methods=["GET"])
+def api_root():
+    """API root endpoint"""
+    return jsonify({
+        "service": "stream_checker_api",
+        "endpoints": {
+            "health": "/api/health (GET)",
+            "check_stream": "/api/streams/check (POST)",
+            "job_status": "/api/jobs/<test_run_id> (GET)",
+            "job_results": "/api/jobs/<test_run_id>/results (GET)",
+            "request_stats": "/api/requests/stats (GET)"
+        }
+    }), 200
 
 
 @app.route("/api/health", methods=["GET"])
@@ -399,6 +452,59 @@ def get_request_stats():
     except Exception as e:
         logger.error(f"Error getting request stats: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route("/api/tests/all", methods=["GET"])
+def get_all_tests():
+    """Get all test runs with their results"""
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        # Get all test runs from database
+        db_path = Path(config.get_path("database.path")).expanduser()
+        
+        tests = []
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all test runs with their latest phase results
+            cursor.execute("""
+                SELECT 
+                    tr.test_run_id,
+                    tr.stream_id,
+                    tr.timestamp,
+                    tr.phase,
+                    tr.results,
+                    s.url as stream_url
+                FROM test_runs tr
+                LEFT JOIN streams s ON tr.stream_id = s.stream_id
+                ORDER BY tr.timestamp DESC
+                LIMIT 1000
+            """)
+            
+            rows = cursor.fetchall()
+            
+            for row in rows:
+                try:
+                    results = json.loads(row["results"]) if row["results"] else {}
+                    tests.append({
+                        "test_run_id": row["test_run_id"],
+                        "stream_id": row["stream_id"],
+                        "stream_url": row["stream_url"],
+                        "timestamp": row["timestamp"],
+                        "phase": row["phase"],
+                        "results": results
+                    })
+                except json.JSONDecodeError:
+                    continue
+        
+        return jsonify({"tests": tests}), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting all tests: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
 if __name__ == "__main__":
