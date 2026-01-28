@@ -507,6 +507,91 @@ def get_all_tests():
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
+@app.route("/api/tests/<test_run_id>/detailed", methods=["GET"])
+def get_test_detailed(test_run_id):
+    """Get detailed results for a specific test run"""
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        # Get test run from database
+        db_path = Path(config.get_path("database.path")).expanduser()
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get test run with highest phase (most complete results)
+            cursor.execute("""
+                SELECT 
+                    tr.test_run_id,
+                    tr.stream_id,
+                    tr.timestamp,
+                    tr.phase,
+                    tr.results,
+                    s.url as stream_url,
+                    s.name as stream_name,
+                    s.created_at as stream_created_at,
+                    s.last_tested as stream_last_tested,
+                    s.test_count
+                FROM test_runs tr
+                LEFT JOIN streams s ON tr.stream_id = s.stream_id
+                WHERE tr.test_run_id = ?
+                ORDER BY tr.phase DESC
+                LIMIT 1
+            """, (test_run_id,))
+            
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({"error": "Test run not found"}), 404
+            
+            try:
+                results = json.loads(row["results"]) if row["results"] else {}
+                
+                # Get all phases for this test run (history)
+                cursor.execute("""
+                    SELECT phase, timestamp, results
+                    FROM test_runs
+                    WHERE test_run_id = ?
+                    ORDER BY phase ASC
+                """, (test_run_id,))
+                
+                phase_history = []
+                for phase_row in cursor.fetchall():
+                    try:
+                        phase_results = json.loads(phase_row["results"]) if phase_row["results"] else {}
+                        phase_history.append({
+                            "phase": phase_row["phase"],
+                            "timestamp": phase_row["timestamp"],
+                            "results": phase_results
+                        })
+                    except json.JSONDecodeError:
+                        continue
+                
+                return jsonify({
+                    "test_run_id": row["test_run_id"],
+                    "stream_id": row["stream_id"],
+                    "stream_url": row["stream_url"],
+                    "stream_name": row["stream_name"],
+                    "stream_created_at": row["stream_created_at"],
+                    "stream_last_tested": row["stream_last_tested"],
+                    "stream_test_count": row["test_count"],
+                    "timestamp": row["timestamp"],
+                    "phase": row["phase"],
+                    "results": results,
+                    "phase_history": phase_history
+                }), 200
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing JSON for test_run_id {test_run_id}: {e}")
+                return jsonify({"error": "Invalid JSON in database"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error getting detailed test: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 if __name__ == "__main__":
     # Run development server
     # Use threaded=False to avoid fork crashes with subprocess on macOS

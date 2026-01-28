@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Checker - Detailed Test History</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .detailed-container {
+            max-width: 1600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .detailed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .detailed-header h1 {
+            margin: 0;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        .test-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .test-info {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-info h2 {
+            margin: 0 0 15px 0;
+            color: #667eea;
+        }
+        .test-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .test-info-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .test-info-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .test-info-value {
+            color: #333;
+            word-break: break-word;
+        }
+        .test-info-value code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .results-table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+        tbody tr:hover {
+            background: #f5f5f5;
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .category-cell {
+            font-weight: 600;
+            color: #667eea;
+            min-width: 180px;
+        }
+        .field-cell {
+            color: #555;
+            min-width: 200px;
+        }
+        .value-cell {
+            color: #333;
+            word-break: break-word;
+            max-width: 400px;
+        }
+        .value-cell code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .value-cell pre {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            margin: 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+        .status-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .category-group {
+            background: #f8f9fa;
+        }
+        .category-group .category-cell {
+            font-size: 1.1em;
+            padding-top: 15px;
+            padding-bottom: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="detailed-container">
+        <div class="detailed-header">
+            <h1>Detailed Test History</h1>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">← Checker</a>
+                <a href="history.html" class="nav-link">← History</a>
+                <button class="nav-link" onclick="loadTestList()" style="border: none; cursor: pointer;">Refresh</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">Loading test list...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="testSelector" class="test-selector" style="display: none;">
+            <label for="testSelect" style="display: block; margin-bottom: 10px; font-weight: 600;">Select Test Run:</label>
+            <select id="testSelect" onchange="loadDetailedTest(this.value)">
+                <option value="">-- Select a test run --</option>
+            </select>
+        </div>
+        
+        <div id="testDetails" style="display: none;">
+            <!-- Test details will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        // Get API base URL (same logic as other pages)
+        function getApiBaseUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiParam = urlParams.get('api');
+            
+            if (apiParam) {
+                return apiParam.replace(/\/$/, '') + '/api';
+            }
+            
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:5000/api';
+            }
+            
+            return 'http://YOUR-RASPBERRY-PI-IP:5000/api';
+        }
+
+        const API_BASE_URL = getApiBaseUrl();
+        console.log('API Base URL:', API_BASE_URL);
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        function formatValue(value) {
+            if (value === null || value === undefined) {
+                return '<span style="color: #999; font-style: italic;">null</span>';
+            }
+            
+            if (typeof value === 'boolean') {
+                return value ? '<span style="color: #28a745;">true</span>' : '<span style="color: #dc3545;">false</span>';
+            }
+            
+            if (typeof value === 'number') {
+                return value.toString();
+            }
+            
+            if (typeof value === 'string') {
+                // Escape HTML
+                const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (escaped.length > 150) {
+                    return `<span title="${escaped}">${escaped.substring(0, 150)}...</span>`;
+                }
+                return escaped;
+            }
+            
+            if (Array.isArray(value)) {
+                if (value.length === 0) {
+                    return '<span style="color: #999; font-style: italic;">[]</span>';
+                }
+                // Format array as JSON
+                try {
+                    return `<pre>${JSON.stringify(value, null, 2)}</pre>`;
+                } catch {
+                    return value.map(v => String(v)).join(', ');
+                }
+            }
+            
+            if (typeof value === 'object') {
+                if (Object.keys(value).length === 0) {
+                    return '<span style="color: #999; font-style: italic;">{}</span>';
+                }
+                // Format object as JSON
+                try {
+                    return `<pre>${JSON.stringify(value, null, 2)}</pre>`;
+                } catch {
+                    return String(value);
+                }
+            }
+            
+            return String(value);
+        }
+
+        function getStatusBadge(status) {
+            if (!status) return '<span class="status-badge">-</span>';
+            const statusLower = String(status).toLowerCase();
+            let className = 'status-warning';
+            if (statusLower === 'success') className = 'status-success';
+            else if (statusLower === 'error') className = 'status-error';
+            return `<span class="status-badge ${className}">${status}</span>`;
+        }
+
+        function humanizeFieldName(fieldName) {
+            // Convert snake_case or camelCase to Title Case
+            return fieldName
+                .replace(/_/g, ' ')
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+        }
+
+        function flattenObject(obj, category = '', rows = []) {
+            if (!obj || typeof obj !== 'object') {
+                return rows;
+            }
+
+            for (const [key, value] of Object.entries(obj)) {
+                const fieldName = humanizeFieldName(key);
+                
+                // Handle nested objects
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    // Determine category name
+                    let subCategory = category;
+                    if (category) {
+                        subCategory = `${category} → ${fieldName}`;
+                    } else {
+                        subCategory = fieldName;
+                    }
+                    
+                    // Recursively flatten nested object
+                    flattenObject(value, subCategory, rows);
+                } else {
+                    // Add row for this field
+                    rows.push({
+                        category: category || 'Root',
+                        field: fieldName,
+                        value: value
+                    });
+                }
+            }
+
+            return rows;
+        }
+
+        function buildTableRows(data) {
+            const rows = [];
+            
+            // Add test information first
+            rows.push({
+                category: 'Test Information',
+                field: 'Test Run ID',
+                value: data.test_run_id,
+                isCategoryHeader: false
+            });
+            rows.push({
+                category: 'Test Information',
+                field: 'Stream ID',
+                value: data.stream_id,
+                isCategoryHeader: false
+            });
+            rows.push({
+                category: 'Test Information',
+                field: 'Stream URL',
+                value: data.stream_url || 'N/A',
+                isCategoryHeader: false
+            });
+            if (data.stream_name) {
+                rows.push({
+                    category: 'Test Information',
+                    field: 'Stream Name',
+                    value: data.stream_name,
+                    isCategoryHeader: false
+                });
+            }
+            rows.push({
+                category: 'Test Information',
+                field: 'Timestamp',
+                value: formatTimestamp(data.timestamp),
+                isCategoryHeader: false
+            });
+            rows.push({
+                category: 'Test Information',
+                field: 'Phase',
+                value: data.phase || 'N/A',
+                isCategoryHeader: false
+            });
+            if (data.stream_created_at) {
+                rows.push({
+                    category: 'Test Information',
+                    field: 'Stream Created At',
+                    value: formatTimestamp(data.stream_created_at),
+                    isCategoryHeader: false
+                });
+            }
+            if (data.stream_last_tested) {
+                rows.push({
+                    category: 'Test Information',
+                    field: 'Stream Last Tested',
+                    value: formatTimestamp(data.stream_last_tested),
+                    isCategoryHeader: false
+                });
+            }
+            if (data.stream_test_count !== null && data.stream_test_count !== undefined) {
+                rows.push({
+                    category: 'Test Information',
+                    field: 'Total Test Count',
+                    value: data.stream_test_count,
+                    isCategoryHeader: false
+                });
+            }
+
+            // Add health score
+            if (data.results && data.results.health_score !== null && data.results.health_score !== undefined) {
+                rows.push({
+                    category: 'Health Score',
+                    field: 'Score',
+                    value: `${data.results.health_score}/100`,
+                    isCategoryHeader: false
+                });
+            }
+
+            // Flatten results object
+            if (data.results) {
+                const results = data.results;
+                
+                // Handle special cases for better categorization
+                if (results.connectivity) {
+                    const connRows = flattenObject(results.connectivity, 'Connectivity');
+                    rows.push(...connRows);
+                }
+                
+                if (results.ssl_certificate) {
+                    const sslRows = flattenObject(results.ssl_certificate, 'SSL Certificate');
+                    rows.push(...sslRows);
+                }
+                
+                if (results.stream_type) {
+                    const streamTypeRows = flattenObject(results.stream_type, 'Stream Type');
+                    rows.push(...streamTypeRows);
+                }
+                
+                if (results.stream_parameters) {
+                    const paramsRows = flattenObject(results.stream_parameters, 'Stream Parameters');
+                    rows.push(...paramsRows);
+                }
+                
+                if (results.metadata) {
+                    const metadataRows = flattenObject(results.metadata, 'Metadata');
+                    rows.push(...metadataRows);
+                }
+                
+                if (results.server_headers) {
+                    const headersRows = flattenObject(results.server_headers, 'Server Headers');
+                    rows.push(...headersRows);
+                }
+                
+                if (results.hls_info) {
+                    const hlsRows = flattenObject(results.hls_info, 'HLS Information');
+                    rows.push(...hlsRows);
+                }
+                
+                if (results.player_tests) {
+                    // Special handling for player_tests to get better category names
+                    if (results.player_tests.vlc) {
+                        const vlcRows = flattenObject(results.player_tests.vlc, 'VLC Connection');
+                        rows.push(...vlcRows);
+                    }
+                    // Add other player test types if they exist
+                    for (const [playerType, playerData] of Object.entries(results.player_tests)) {
+                        if (playerType !== 'vlc' && playerData && typeof playerData === 'object') {
+                            const playerRows = flattenObject(playerData, `Player Tests → ${humanizeFieldName(playerType)}`);
+                            rows.push(...playerRows);
+                        }
+                    }
+                }
+                
+                if (results.connection_quality) {
+                    const qualityRows = flattenObject(results.connection_quality, 'Connection Quality');
+                    rows.push(...qualityRows);
+                }
+                
+                if (results.audio_analysis) {
+                    // Special handling for audio_analysis sub-sections
+                    if (results.audio_analysis.silence_detection) {
+                        const silenceRows = flattenObject(results.audio_analysis.silence_detection, 'Audio Analysis → Silence Detection');
+                        rows.push(...silenceRows);
+                    }
+                    if (results.audio_analysis.error_detection) {
+                        const errorRows = flattenObject(results.audio_analysis.error_detection, 'Audio Analysis → Error Detection');
+                        rows.push(...errorRows);
+                    }
+                    if (results.audio_analysis.audio_quality) {
+                        const qualityRows = flattenObject(results.audio_analysis.audio_quality, 'Audio Analysis → Audio Quality');
+                        rows.push(...qualityRows);
+                    }
+                    // Add other audio_analysis fields
+                    for (const [key, value] of Object.entries(results.audio_analysis)) {
+                        if (!['silence_detection', 'error_detection', 'audio_quality'].includes(key)) {
+                            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                                const subRows = flattenObject(value, `Audio Analysis → ${humanizeFieldName(key)}`);
+                                rows.push(...subRows);
+                            } else {
+                                rows.push({
+                                    category: 'Audio Analysis',
+                                    field: humanizeFieldName(key),
+                                    value: value
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                if (results.ad_detection) {
+                    const adRows = flattenObject(results.ad_detection, 'Ad Detection');
+                    rows.push(...adRows);
+                }
+                
+                if (results.issues && Array.isArray(results.issues)) {
+                    rows.push({
+                        category: 'Issues',
+                        field: 'Issues List',
+                        value: results.issues
+                    });
+                }
+                
+                if (results.recommendations && Array.isArray(results.recommendations)) {
+                    rows.push({
+                        category: 'Recommendations',
+                        field: 'Recommendations List',
+                        value: results.recommendations
+                    });
+                }
+                
+                if (results.tests_completed && Array.isArray(results.tests_completed)) {
+                    rows.push({
+                        category: 'Test Execution',
+                        field: 'Tests Completed',
+                        value: results.tests_completed.join(', ')
+                    });
+                }
+            }
+
+            return rows;
+        }
+
+        async function loadTestList() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const testSelector = document.getElementById('testSelector');
+            const testSelect = document.getElementById('testSelect');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            testSelector.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/tests/all`, {
+                    signal: AbortSignal.timeout(30000)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.tests || data.tests.length === 0) {
+                    testSelect.innerHTML = '<option value="">No tests found</option>';
+                } else {
+                    testSelect.innerHTML = '<option value="">-- Select a test run --</option>';
+                    data.tests.forEach(test => {
+                        const option = document.createElement('option');
+                        option.value = test.test_run_id;
+                        const url = test.stream_url || 'N/A';
+                        const timestamp = formatTimestamp(test.timestamp);
+                        option.textContent = `${timestamp} - ${url.substring(0, 50)}${url.length > 50 ? '...' : ''}`;
+                        testSelect.appendChild(option);
+                    });
+                }
+                
+                loading.style.display = 'none';
+                testSelector.style.display = 'block';
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Error loading test list: ${err.message}`;
+                console.error('Error loading test list:', err);
+            }
+        }
+
+        async function loadDetailedTest(testRunId) {
+            if (!testRunId) {
+                document.getElementById('testDetails').style.display = 'none';
+                return;
+            }
+            
+            const testDetails = document.getElementById('testDetails');
+            const error = document.getElementById('error');
+            
+            testDetails.style.display = 'block';
+            testDetails.innerHTML = '<div class="loading">Loading detailed test results...</div>';
+            error.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/tests/${testRunId}/detailed`, {
+                    signal: AbortSignal.timeout(30000)
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('Test run not found');
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Build table rows
+                const rows = buildTableRows(data);
+                
+                // Group rows by category for better display
+                const categoryGroups = {};
+                let currentCategory = null;
+                
+                rows.forEach(row => {
+                    if (!categoryGroups[row.category]) {
+                        categoryGroups[row.category] = [];
+                    }
+                    categoryGroups[row.category].push(row);
+                });
+                
+                // Build HTML
+                let html = '';
+                
+                // Test info header
+                html += `
+                    <div class="test-info">
+                        <h2>Test Information</h2>
+                        <div class="test-info-grid">
+                            <div class="test-info-item">
+                                <div class="test-info-label">Test Run ID</div>
+                                <div class="test-info-value"><code>${data.test_run_id}</code></div>
+                            </div>
+                            <div class="test-info-item">
+                                <div class="test-info-label">Stream URL</div>
+                                <div class="test-info-value"><code>${data.stream_url || 'N/A'}</code></div>
+                            </div>
+                            <div class="test-info-item">
+                                <div class="test-info-label">Timestamp</div>
+                                <div class="test-info-value">${formatTimestamp(data.timestamp)}</div>
+                            </div>
+                            <div class="test-info-item">
+                                <div class="test-info-label">Phase</div>
+                                <div class="test-info-value">${data.phase || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Results table
+                html += `
+                    <div class="results-table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Category / Test Type</th>
+                                    <th>Field Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                // Add rows grouped by category
+                const sortedCategories = Object.keys(categoryGroups).sort();
+                sortedCategories.forEach(category => {
+                    const categoryRows = categoryGroups[category];
+                    
+                    // Add category header row
+                    html += `
+                        <tr class="category-group">
+                            <td class="category-cell" colspan="3">${category}</td>
+                        </tr>
+                    `;
+                    
+                    // Add data rows for this category
+                    categoryRows.forEach(row => {
+                        html += `
+                            <tr>
+                                <td class="category-cell"></td>
+                                <td class="field-cell">${row.field}</td>
+                                <td class="value-cell">${formatValue(row.value)}</td>
+                            </tr>
+                        `;
+                    });
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                testDetails.innerHTML = html;
+                
+            } catch (err) {
+                testDetails.style.display = 'block';
+                testDetails.innerHTML = `<div class="error">Error loading detailed test: ${err.message}</div>`;
+                console.error('Error loading detailed test:', err);
+            }
+        }
+
+        // Load test list on page load
+        document.addEventListener('DOMContentLoaded', loadTestList);
+    </script>
+</body>
+</html>
