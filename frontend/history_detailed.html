@@ -39,6 +39,13 @@
             background: #9d7aff;
             color: white;
         }
+        a {
+            color: #9d7aff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
         .test-selector {
             margin-bottom: 20px;
             padding: 15px;
@@ -225,7 +232,7 @@
         
         <div id="testSelector" class="test-selector" style="display: none;">
             <label for="testSelect" style="display: block; margin-bottom: 10px; font-weight: 600;">Select Test Run:</label>
-            <select id="testSelect" onchange="loadDetailedTest(this.value)">
+            <select id="testSelect" onchange="handleTestSelect(this.value)">
                 <option value="">-- Select a test run --</option>
             </select>
         </div>
@@ -570,7 +577,7 @@
             return rows;
         }
 
-        async function loadTestList() {
+        async function loadTestList(selectTestRunId = null) {
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
             const testSelector = document.getElementById('testSelector');
@@ -601,6 +608,10 @@
                         const url = test.stream_url || 'N/A';
                         const timestamp = formatTimestamp(test.timestamp);
                         option.textContent = `${timestamp} - ${url.substring(0, 50)}${url.length > 50 ? '...' : ''}`;
+                        // Pre-select if this is the test_run_id from URL
+                        if (selectTestRunId && test.test_run_id === selectTestRunId) {
+                            option.selected = true;
+                        }
                         testSelect.appendChild(option);
                     });
                 }
@@ -614,6 +625,21 @@
                 error.textContent = `Error loading test list: ${err.message}`;
                 console.error('Error loading test list:', err);
             }
+        }
+
+        function handleTestSelect(testRunId) {
+            if (testRunId) {
+                // Update URL without reloading page
+                const url = new URL(window.location);
+                url.searchParams.set('test_run_id', testRunId);
+                window.history.pushState({}, '', url);
+            } else {
+                // Remove test_run_id from URL
+                const url = new URL(window.location);
+                url.searchParams.delete('test_run_id');
+                window.history.pushState({}, '', url);
+            }
+            loadDetailedTest(testRunId);
         }
 
         async function loadDetailedTest(testRunId) {
@@ -744,8 +770,21 @@
             }
         }
 
-        // Load test list on page load
-        document.addEventListener('DOMContentLoaded', loadTestList);
+        // Load test list on page load, or load specific test if test_run_id is in URL
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const testRunId = urlParams.get('test_run_id');
+            
+            if (testRunId) {
+                // If test_run_id is provided, load test list first (to populate dropdown)
+                // then load the specific test
+                await loadTestList(testRunId);
+                loadDetailedTest(testRunId);
+            } else {
+                // Otherwise, load the test list as usual
+                loadTestList();
+            }
+        });
     </script>
 </body>
 </html>

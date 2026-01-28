@@ -259,7 +259,14 @@
                                 <td>${formatTimestamp(test.timestamp)}</td>
                                 <td><code style="font-size: 0.85em;">${test.ip_address || 'N/A'}</code></td>
                                 <td class="compact" title="${test.stream_url || ''}">${test.stream_url || 'N/A'}</td>
-                                <td class="compact" title="${test.test_run_id}">${test.test_run_id.substring(0, 8)}...</td>
+                                <td class="compact" title="${test.test_run_id}">
+                                    <a href="history_detailed.html?test_run_id=${test.test_run_id}" 
+                                       style="color: #9d7aff; text-decoration: none; font-family: monospace;"
+                                       onmouseover="this.style.textDecoration='underline'"
+                                       onmouseout="this.style.textDecoration='none'">
+                                        ${test.test_run_id.substring(0, 8)}...
+                                    </a>
+                                </td>
                                 <td>${test.phase || 'N/A'}</td>
                                 <td class="health-score ${getHealthScoreClass(r.health_score)}">
                                     ${r.health_score !== null && r.health_score !== undefined ? r.health_score : 'N/A'}
