@@ -33,56 +33,50 @@
                     
                     <div class="form-group">
                         <label>Select Tests to Run:</label>
-                        <div class="test-options">
-                            <div class="test-option">
+                        <ul class="test-list">
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-connectivity" name="tests" value="connectivity" checked>
                                 <label for="test-connectivity">
-                                    <span class="test-icon">🔗</span>
                                     <span class="test-label">Basic Connectivity</span>
                                     <span class="test-desc">HTTP connection, SSL certificate, response time</span>
                                 </label>
-                            </div>
-                            <div class="test-option">
+                            </li>
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-stream-info" name="tests" value="stream_info" checked>
                                 <label for="test-stream-info">
-                                    <span class="test-icon">📊</span>
                                     <span class="test-label">Stream Information</span>
                                     <span class="test-desc">Bitrate, codec, sample rate, stream type</span>
                                 </label>
-                            </div>
-                            <div class="test-option">
+                            </li>
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-metadata" name="tests" value="metadata" checked>
                                 <label for="test-metadata">
-                                    <span class="test-icon">🏷️</span>
                                     <span class="test-label">Metadata</span>
                                     <span class="test-desc">Title, genre, artist, description</span>
                                 </label>
-                            </div>
-                            <div class="test-option">
+                            </li>
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-player" name="tests" value="player_test" checked>
                                 <label for="test-player">
-                                    <span class="test-icon">▶️</span>
                                     <span class="test-label">Player Compatibility</span>
                                     <span class="test-desc">VLC connectivity, format support</span>
                                 </label>
-                            </div>
-                            <div class="test-option">
+                            </li>
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-audio" name="tests" value="audio_analysis" checked>
                                 <label for="test-audio">
-                                    <span class="test-icon">🎵</span>
                                     <span class="test-label">Audio Quality</span>
                                     <span class="test-desc">Silence detection, error messages, metrics</span>
                                 </label>
-                            </div>
-                            <div class="test-option">
+                            </li>
+                            <li class="test-list-item">
                                 <input type="checkbox" id="test-ads" name="tests" value="ad_detection" checked>
                                 <label for="test-ads">
-                                    <span class="test-icon">📢</span>
                                     <span class="test-label">Ad Detection</span>
                                     <span class="test-desc">Ad markers, break tracking</span>
                                 </label>
-                            </div>
-                        </div>
+                            </li>
+                        </ul>
                         <div class="test-actions">
                             <button type="button" id="selectAllBtn" class="btn-link">Select All</button>
                             <span>|</span>

@@ -39,35 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
 });
 
-// Handle select all / deselect all buttons and checkbox styling
+// Handle select all / deselect all buttons
 document.addEventListener('DOMContentLoaded', () => {
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const testCheckboxes = document.querySelectorAll('input[name="tests"]');
     
-    // Function to update checkbox styling
-    const updateCheckboxStyle = (checkbox) => {
-        const option = checkbox.closest('.test-option');
-        if (checkbox.checked) {
-            option.classList.add('checked');
-        } else {
-            option.classList.remove('checked');
-        }
-    };
-    
-    // Initialize styling for all checkboxes
-    testCheckboxes.forEach(cb => {
-        updateCheckboxStyle(cb);
-        cb.addEventListener('change', () => {
-            updateCheckboxStyle(cb);
-        });
-    });
-    
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', () => {
             testCheckboxes.forEach(cb => {
                 cb.checked = true;
-                updateCheckboxStyle(cb);
             });
         });
     }
@@ -76,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         deselectAllBtn.addEventListener('click', () => {
             testCheckboxes.forEach(cb => {
                 cb.checked = false;
-                updateCheckboxStyle(cb);
             });
         });
     }
@@ -84,11 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-select connectivity if any other test is selected
     testCheckboxes.forEach(cb => {
         cb.addEventListener('change', () => {
-            updateCheckboxStyle(cb);
             if (cb.id !== 'test-connectivity' && cb.checked) {
                 const connectivityCheckbox = document.getElementById('test-connectivity');
                 connectivityCheckbox.checked = true;
-                updateCheckboxStyle(connectivityCheckbox);
             }
         });
     });
