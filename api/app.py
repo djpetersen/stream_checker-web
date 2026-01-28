@@ -469,7 +469,7 @@ def get_all_tests():
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # Get all test runs with their latest phase results
+            # Get all test runs with their latest phase results and IP addresses
             cursor.execute("""
                 SELECT 
                     tr.test_run_id,
@@ -477,9 +477,11 @@ def get_all_tests():
                     tr.timestamp,
                     tr.phase,
                     tr.results,
-                    s.url as stream_url
+                    s.url as stream_url,
+                    rl.ip_address
                 FROM test_runs tr
                 LEFT JOIN streams s ON tr.stream_id = s.stream_id
+                LEFT JOIN request_logs rl ON tr.test_run_id = rl.test_run_id
                 ORDER BY tr.timestamp DESC
                 LIMIT 1000
             """)
@@ -495,6 +497,7 @@ def get_all_tests():
                         "stream_url": row["stream_url"],
                         "timestamp": row["timestamp"],
                         "phase": row["phase"],
+                        "ip_address": row["ip_address"] if row["ip_address"] else None,
                         "results": results
                     })
                 except json.JSONDecodeError:
@@ -533,9 +536,11 @@ def get_test_detailed(test_run_id):
                     s.name as stream_name,
                     s.created_at as stream_created_at,
                     s.last_tested as stream_last_tested,
-                    s.test_count
+                    s.test_count,
+                    rl.ip_address
                 FROM test_runs tr
                 LEFT JOIN streams s ON tr.stream_id = s.stream_id
+                LEFT JOIN request_logs rl ON tr.test_run_id = rl.test_run_id
                 WHERE tr.test_run_id = ?
                 ORDER BY tr.phase DESC
                 LIMIT 1
@@ -579,6 +584,7 @@ def get_test_detailed(test_run_id):
                     "stream_test_count": row["test_count"],
                     "timestamp": row["timestamp"],
                     "phase": row["phase"],
+                    "ip_address": row["ip_address"] if row["ip_address"] else None,
                     "results": results,
                     "phase_history": phase_history
                 }), 200

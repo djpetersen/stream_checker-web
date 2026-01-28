@@ -22,27 +22,27 @@
             margin: 0;
         }
         .back-link {
-            color: #667eea;
+            color: #9d7aff;
             text-decoration: none;
             padding: 10px 20px;
-            border: 1px solid #667eea;
+            border: 1px solid #9d7aff;
             border-radius: 5px;
             transition: all 0.3s;
         }
         .back-link:hover {
-            background: #667eea;
+            background: #9d7aff;
             color: white;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: #2a2a45;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             border-radius: 8px;
             overflow: hidden;
         }
         thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2d1b4e 0%, #1a0d2e 100%);
             color: white;
         }
         th {
@@ -54,11 +54,12 @@
         }
         td {
             padding: 12px 15px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid #3a3a5c;
             font-size: 13px;
+            color: #e0e0e0;
         }
         tbody tr:hover {
-            background: #f5f5f5;
+            background: #3a3a5c;
         }
         tbody tr:last-child td {
             border-bottom: none;
@@ -80,26 +81,26 @@
         }
         .status-warning {
             background: #ffc107;
-            color: #333;
+            color: #1a1a2e;
         }
         .health-score {
             font-weight: 600;
         }
-        .health-good { color: #28a745; }
-        .health-warning { color: #ffc107; }
-        .health-critical { color: #dc3545; }
+        .health-good { color: #4ade80; }
+        .health-warning { color: #fbbf24; }
+        .health-critical { color: #f87171; }
         .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: #b0b0b0;
         }
         .error {
             text-align: center;
             padding: 40px;
-            color: #dc3545;
+            color: #f87171;
         }
         .refresh-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #7c5aff 0%, #9d7aff 100%);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -137,6 +138,7 @@
                 <thead>
                     <tr>
                         <th>Timestamp</th>
+                        <th>IP Address</th>
                         <th>Stream URL</th>
                         <th>Test Run ID</th>
                         <th>Phase</th>
@@ -239,7 +241,7 @@
                 const data = await response.json();
                 
                 if (!data.tests || data.tests.length === 0) {
-                    testsBody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">No tests found</td></tr>';
+                    testsBody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">No tests found</td></tr>';
                 } else {
                     testsBody.innerHTML = data.tests.map(test => {
                         const r = test.results || {};
@@ -255,6 +257,7 @@
                         return `
                             <tr>
                                 <td>${formatTimestamp(test.timestamp)}</td>
+                                <td><code style="font-size: 0.85em;">${test.ip_address || 'N/A'}</code></td>
                                 <td class="compact" title="${test.stream_url || ''}">${test.stream_url || 'N/A'}</td>
                                 <td class="compact" title="${test.test_run_id}">${test.test_run_id.substring(0, 8)}...</td>
                                 <td>${test.phase || 'N/A'}</td>
