@@ -126,17 +126,70 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
     
     statusSection.style.display = 'block';
     document.getElementById('resultsSection').style.display = 'none';
-    statusMessage.textContent = 'Testing stream...';
     statusMessage.style.color = '#667eea';
     progressBar.style.display = 'block';
-    progressFill.style.width = '10%';
+    progressFill.style.width = '5%';
     
-    // Animate progress (simulated, since we don't have real-time updates yet)
-    let progress = 10;
+    // Map test IDs to friendly names and determine test order
+    const testNames = {
+        'connectivity': 'Basic Connectivity',
+        'stream_info': 'Stream Information',
+        'metadata': 'Metadata',
+        'player_test': 'Player Compatibility',
+        'audio_analysis': 'Audio Quality',
+        'ad_detection': 'Ad Detection'
+    };
+    
+    // Determine test order based on what's selected
+    const testOrder = [];
+    if (selectedTests.connectivity) {
+        testOrder.push('connectivity');
+        if (selectedTests.stream_info) testOrder.push('stream_info');
+        if (selectedTests.metadata) testOrder.push('metadata');
+    }
+    if (selectedTests.player_test) testOrder.push('player_test');
+    if (selectedTests.audio_analysis) testOrder.push('audio_analysis');
+    if (selectedTests.ad_detection) testOrder.push('ad_detection');
+    
+    // Calculate progress segments (each test gets equal share of progress)
+    const totalTests = testOrder.length;
+    const progressPerTest = totalTests > 0 ? (90 - 5) / totalTests : 85; // Start at 5%, end at 90%
+    
+    // Animate progress with detailed status messages
+    let currentTestIndex = 0;
+    let progress = 5;
+    
+    // Update status message for current test
+    const updateStatusMessage = () => {
+        if (currentTestIndex < testOrder.length) {
+            const currentTest = testOrder[currentTestIndex];
+            const testName = testNames[currentTest] || currentTest;
+            statusMessage.textContent = `Testing ${testName}...`;
+        } else {
+            statusMessage.textContent = 'Finalizing results...';
+        }
+    };
+    
+    // Initial status message
+    updateStatusMessage();
+    
     const progressInterval = setInterval(() => {
-        progress = Math.min(progress + 5, 90);
-        progressFill.style.width = progress + '%';
-    }, 500);
+        // Calculate which test we should be on based on progress
+        const targetProgress = 5 + (currentTestIndex + 1) * progressPerTest;
+        
+        if (progress < targetProgress) {
+            progress = Math.min(progress + 3, targetProgress);
+            progressFill.style.width = progress + '%';
+        } else if (currentTestIndex < testOrder.length - 1) {
+            // Move to next test
+            currentTestIndex++;
+            updateStatusMessage();
+        } else if (progress < 90) {
+            // Continue to 90% while finalizing
+            progress = Math.min(progress + 2, 90);
+            progressFill.style.width = progress + '%';
+        }
+    }, 400);
     
     try {
         const response = await fetch(`${API_BASE_URL}/streams/check`, {
@@ -150,6 +203,7 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
         });
         
         clearInterval(progressInterval);
+        statusMessage.textContent = 'Finalizing results...';
         progressFill.style.width = '100%';
         
         if (!response.ok) {
@@ -176,6 +230,7 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
         
     } catch (error) {
         clearInterval(progressInterval);
+        statusMessage.textContent = 'Processing error...';
         progressFill.style.width = '100%';
         progressFill.style.background = 'linear-gradient(90deg, #dc3545 0%, #c82333 100%)';
         
