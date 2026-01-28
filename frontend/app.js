@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
         const apiInfo = document.createElement('div');
         apiInfo.id = 'apiInfo';
-        apiInfo.style.cssText = 'padding: 10px; background: #f0f0f0; margin-bottom: 20px; border-radius: 5px; font-size: 12px; color: #666;';
+        apiInfo.style.cssText = 'padding: 10px; background: #2a2a45; margin-bottom: 20px; border-radius: 5px; font-size: 12px; color: #b0b0b0; border: 1px solid #3a3a5c;';
         apiInfo.innerHTML = `<strong>API:</strong> ${API_BASE_URL} | <a href="?api=${encodeURIComponent(API_BASE_URL.replace('/api', ''))}">Change</a>`;
         document.querySelector('.container main').insertBefore(apiInfo, document.querySelector('.input-section'));
     }
@@ -261,7 +261,7 @@ document.getElementById('streamForm').addEventListener('submit', async (e) => {
             <div class="result-item" style="border-left-color: #dc3545;">
                 <h3 style="color: #dc3545;">Error</h3>
                 <p style="white-space: pre-line;">${errorMessage}</p>
-                <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                <p style="font-size: 12px; color: #b0b0b0; margin-top: 10px;">
                     Error Details: ${error.message || 'Unknown error'}
                 </p>
             </div>
@@ -308,7 +308,7 @@ function displayResults(data) {
                         <h2 style="margin: 0; color: ${color};">
                             Health Score: <span style="font-size: 1.2em;">${score}/100</span>
                         </h2>
-                        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Status: ${status}</p>
+                        <p style="margin: 5px 0 0 0; color: #b0b0b0; font-size: 14px;">Status: ${status}</p>
                     </div>
                 </div>
             </div>
@@ -405,18 +405,18 @@ function displayResults(data) {
                 <h3>📊 Stream Parameters</h3>
                 ${hasParams ? `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                        ${params.bitrate_kbps ? `<div><strong>Bitrate:</strong><br><span style="font-size: 1.2em; color: #667eea;">${params.bitrate_kbps} kbps</span></div>` : ''}
+                        ${params.bitrate_kbps ? `<div><strong>Bitrate:</strong><br><span style="font-size: 1.2em; color: #9d7aff;">${params.bitrate_kbps} kbps</span></div>` : ''}
                         ${params.codec ? `<div><strong>Codec:</strong><br><code style="font-size: 1.1em;">${params.codec}</code></div>` : ''}
-                        ${params.sample_rate_hz ? `<div><strong>Sample Rate:</strong><br><span style="font-size: 1.2em; color: #667eea;">${params.sample_rate_hz} Hz</span></div>` : ''}
+                        ${params.sample_rate_hz ? `<div><strong>Sample Rate:</strong><br><span style="font-size: 1.2em; color: #9d7aff;">${params.sample_rate_hz} Hz</span></div>` : ''}
                         ${params.channels ? `<div><strong>Channels:</strong><br><span style="font-size: 1.2em; color: #667eea;">${params.channels}</span></div>` : ''}
                         ${params.container_format ? `<div><strong>Container:</strong><br><code>${params.container_format}</code></div>` : ''}
                         ${params.bitrate_mode ? `<div><strong>Bitrate Mode:</strong><br><code>${params.bitrate_mode}</code></div>` : ''}
                         ${params.duration_seconds ? `<div><strong>Duration:</strong><br><span>${params.duration_seconds} seconds</span></div>` : ''}
                     </div>
                 ` : `
-                    <p style="color: #666; font-style: italic;">
+                    <p style="color: #b0b0b0; font-style: italic;">
                         Stream parameters could not be extracted. This may occur if:
-                        <ul style="margin: 10px 0 0 20px; color: #666;">
+                        <ul style="margin: 10px 0 0 20px; color: #b0b0b0;">
                             <li>The stream URL returned an error (e.g., 404 Not Found)</li>
                             <li>The stream format is not supported</li>
                             <li>The stream requires authentication</li>
