@@ -98,7 +98,9 @@ def root():
             "check_stream": "/api/streams/check (POST)",
             "job_status": "/api/jobs/<test_run_id> (GET)",
             "job_results": "/api/jobs/<test_run_id>/results (GET)",
-            "request_stats": "/api/requests/stats (GET)"
+            "request_stats": "/api/requests/stats (GET)",
+            "log_listening": "/api/listening/log (POST)",
+            "listening_history": "/api/listening/history (GET)"
         }
     }), 200
 
@@ -113,7 +115,9 @@ def api_root():
             "check_stream": "/api/streams/check (POST)",
             "job_status": "/api/jobs/<test_run_id> (GET)",
             "job_results": "/api/jobs/<test_run_id>/results (GET)",
-            "request_stats": "/api/requests/stats (GET)"
+            "request_stats": "/api/requests/stats (GET)",
+            "log_listening": "/api/listening/log (POST)",
+            "listening_history": "/api/listening/history (GET)"
         }
     }), 200
 
@@ -341,7 +345,17 @@ def check_stream():
         # Ad Detection
         if tests.get("ad_detection") and phase >= 4:
             try:
-                detector = AdDetector(monitoring_duration=30, check_interval=2.0)
+                # Get duration from tests dict (could be an object with duration_seconds or just True)
+                duration = 60  # Default duration
+                if isinstance(tests.get("ad_detection"), dict):
+                    duration = tests["ad_detection"].get("duration_seconds", 60)
+                elif tests.get("ad_detection") is True:
+                    duration = 60  # Default when just True
+                
+                # Ensure duration is within valid range (10-300 seconds)
+                duration = max(10, min(300, int(duration)))
+                
+                detector = AdDetector(monitoring_duration=duration, check_interval=2.0)
                 ad_result = detector.detect(url)
                 result["ad_detection"] = ad_result
                 
@@ -456,20 +470,36 @@ def get_request_stats():
 
 @app.route("/api/tests/all", methods=["GET"])
 def get_all_tests():
-    """Get all test runs with their results"""
+    """Get test runs with pagination support"""
     try:
         import sqlite3
         from pathlib import Path
         
-        # Get all test runs from database
+        # Get pagination parameters
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        # Validate pagination parameters
+        if limit < 1 or limit > 500:
+            limit = 50
+        if offset < 0:
+            offset = 0
+        
+        # Get test runs from database
         db_path = Path(config.get_path("database.path")).expanduser()
         
         tests = []
+        total_count = 0
         with sqlite3.connect(str(db_path)) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # Get all test runs with their latest phase results and IP addresses
+            # Get total count for pagination info
+            cursor.execute("SELECT COUNT(DISTINCT tr.test_run_id) as count FROM test_runs tr")
+            total_row = cursor.fetchone()
+            total_count = total_row["count"] if total_row else 0
+            
+            # Get paginated test runs with their latest phase results and IP addresses
             cursor.execute("""
                 SELECT 
                     tr.test_run_id,
@@ -483,8 +513,8 @@ def get_all_tests():
                 LEFT JOIN streams s ON tr.stream_id = s.stream_id
                 LEFT JOIN request_logs rl ON tr.test_run_id = rl.test_run_id
                 ORDER BY tr.timestamp DESC
-                LIMIT 1000
-            """)
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
             
             rows = cursor.fetchall()
             
@@ -503,10 +533,188 @@ def get_all_tests():
                 except json.JSONDecodeError:
                     continue
         
-        return jsonify({"tests": tests}), 200
+        return jsonify({
+            "tests": tests,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }), 200
         
     except Exception as e:
         logger.error(f"Error getting all tests: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route("/api/listening/log", methods=["POST"])
+def log_listening_session():
+    """Log a listening session (play to pause/stop, or unpause to pause/stop)"""
+    try:
+        # Handle both JSON and blob (from sendBeacon) requests
+        data = None
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json()
+        else:
+            # Try to parse as JSON from raw data (for sendBeacon blob)
+            try:
+                data = json.loads(request.data.decode('utf-8'))
+            except (ValueError, UnicodeDecodeError):
+                pass
+        
+        if not data:
+            # Try one more time with get_json(force=True)
+            try:
+                data = request.get_json(force=True)
+            except:
+                pass
+        
+        if not data:
+            logger.warning(f"Could not parse listening session data. Content-Type: {request.content_type}, Data length: {len(request.data)}")
+            return jsonify({"error": "No JSON data provided"}), 400
+        
+        # Validate required fields
+        required_fields = ["stream_url", "start_timestamp", "end_timestamp", "listening_time_seconds", "action_type"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        # Validate action_type
+        if data["action_type"] not in ("pause", "stop"):
+            return jsonify({"error": "action_type must be 'pause' or 'stop'"}), 400
+        
+        # Validate listening_time_seconds
+        try:
+            listening_time = float(data["listening_time_seconds"])
+            if listening_time < 0:
+                return jsonify({"error": "listening_time_seconds must be non-negative"}), 400
+        except (ValueError, TypeError):
+            return jsonify({"error": "listening_time_seconds must be a number"}), 400
+        
+        # Parse timestamps
+        try:
+            from datetime import datetime
+            start_timestamp = datetime.fromisoformat(data["start_timestamp"].replace('Z', '+00:00'))
+            end_timestamp = datetime.fromisoformat(data["end_timestamp"].replace('Z', '+00:00'))
+        except (ValueError, AttributeError) as e:
+            return jsonify({"error": f"Invalid timestamp format: {e}"}), 400
+        
+        # Get IP address and user agent
+        ip_address = get_client_ip(request) or "unknown"
+        user_agent = get_user_agent(request)
+        
+        logger.info(f"Logging listening session: IP={ip_address}, URL={data['stream_url']}, Duration={listening_time}s, Action={data['action_type']}")
+        
+        # Log the listening session
+        try:
+            session_id = db.log_listening_session(
+                ip_address=ip_address,
+                stream_url=data["stream_url"],
+                start_timestamp=start_timestamp,
+                end_timestamp=end_timestamp,
+                listening_time_seconds=listening_time,
+                action_type=data["action_type"],
+                user_agent=user_agent
+            )
+            
+            logger.info(f"Successfully logged listening session: session_id={session_id}")
+            
+            return jsonify({
+                "success": True,
+                "session_id": session_id,
+                "message": "Listening session logged successfully"
+            }), 200
+        except Exception as db_error:
+            logger.error(f"Database error logging listening session: {db_error}", exc_info=True)
+            return jsonify({"error": "Database error", "message": str(db_error)}), 500
+        
+    except Exception as e:
+        logger.error(f"Error logging listening session: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route("/api/listening/history", methods=["GET"])
+def get_listening_history():
+    """Get listening session history with optional filters and pagination"""
+    try:
+        ip_address = request.args.get('ip_address')
+        stream_url = request.args.get('stream_url')
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        # Validate pagination parameters
+        if limit < 1 or limit > 500:
+            limit = 50
+        if offset < 0:
+            offset = 0
+        
+        # Get listening history from database with pagination
+        # We need to get total count and paginated results
+        import sqlite3
+        from pathlib import Path
+        
+        db_path = Path(config.get_path("database.path")).expanduser()
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Build WHERE clause for filters
+            where_clauses = ["1=1"]
+            params = []
+            
+            if ip_address:
+                where_clauses.append("ip_address = ?")
+                params.append(ip_address)
+            
+            if stream_url:
+                where_clauses.append("stream_url = ?")
+                params.append(stream_url)
+            
+            where_clause = " AND ".join(where_clauses)
+            
+            # Get total count
+            cursor.execute(f"SELECT COUNT(*) as count FROM listening_sessions WHERE {where_clause}", params)
+            total_row = cursor.fetchone()
+            total_count = total_row["count"] if total_row else 0
+            
+            # Get paginated results
+            query = f"""
+                SELECT session_id, ip_address, stream_url, user_agent,
+                       start_timestamp, end_timestamp, listening_time_seconds, action_type, created_at
+                FROM listening_sessions
+                WHERE {where_clause}
+                ORDER BY start_timestamp DESC
+                LIMIT ? OFFSET ?
+            """
+            params.extend([limit, offset])
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            sessions = [
+                {
+                    "session_id": row["session_id"],
+                    "ip_address": row["ip_address"],
+                    "stream_url": row["stream_url"],
+                    "user_agent": row["user_agent"],
+                    "start_timestamp": row["start_timestamp"],
+                    "end_timestamp": row["end_timestamp"],
+                    "listening_time_seconds": row["listening_time_seconds"],
+                    "action_type": row["action_type"],
+                    "created_at": row["created_at"]
+                }
+                for row in rows
+            ]
+        
+        return jsonify({
+            "sessions": sessions,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting listening history: {e}", exc_info=True)
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 

@@ -151,6 +151,8 @@
                         <th>Bitrate (kbps)</th>
                         <th>Codec</th>
                         <th>Player Test Status</th>
+                        <th>VLC Connection Time (ms)</th>
+                        <th>VLC Buffering Events</th>
                         <th>Silence Detected</th>
                         <th>Silence %</th>
                         <th>Ad Detection</th>
@@ -161,6 +163,12 @@
                 <tbody id="testsBody">
                 </tbody>
             </table>
+            <div id="pagination" style="margin-top: 20px; text-align: center; display: none;">
+                <button id="loadMoreBtn" class="refresh-btn" style="margin: 0 auto;">
+                    Load More Tests
+                </button>
+                <p id="paginationInfo" style="color: #b0b0b0; margin-top: 10px; font-size: 0.9em;"></p>
+            </div>
         </div>
     </div>
 
@@ -219,18 +227,34 @@
             return value;
         }
 
-        async function loadTests() {
+        let currentOffset = 0;
+        const pageSize = 50;
+        let allTests = [];
+        let hasMore = false;
+        let totalTests = 0;
+        
+        async function loadTests(reset = true) {
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
             const tableContainer = document.getElementById('table-container');
             const testsBody = document.getElementById('testsBody');
+            const pagination = document.getElementById('pagination');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const paginationInfo = document.getElementById('paginationInfo');
             
-            loading.style.display = 'block';
+            if (reset) {
+                currentOffset = 0;
+                allTests = [];
+                loading.style.display = 'block';
+            } else {
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.textContent = 'Loading...';
+            }
+            
             error.style.display = 'none';
-            tableContainer.style.display = 'none';
             
             try {
-                const response = await fetch(`${API_BASE_URL}/tests/all`, {
+                const response = await fetch(`${API_BASE_URL}/tests/all?limit=${pageSize}&offset=${currentOffset}`, {
                     signal: AbortSignal.timeout(30000)
                 });
                 
@@ -240,10 +264,23 @@
                 
                 const data = await response.json();
                 
-                if (!data.tests || data.tests.length === 0) {
-                    testsBody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">No tests found</td></tr>';
+                // Merge new tests with existing ones
+                if (data.tests && data.tests.length > 0) {
+                    allTests = reset ? data.tests : [...allTests, ...data.tests];
+                    hasMore = data.has_more || false;
+                    totalTests = data.total || allTests.length;
+                    currentOffset += data.tests.length;
+                } else if (reset) {
+                    allTests = [];
+                    hasMore = false;
+                    totalTests = 0;
+                }
+                
+                if (allTests.length === 0) {
+                    testsBody.innerHTML = '<tr><td colspan="21" style="text-align: center; padding: 40px;">No tests found</td></tr>';
+                    pagination.style.display = 'none';
                 } else {
-                    testsBody.innerHTML = data.tests.map(test => {
+                    testsBody.innerHTML = allTests.map(test => {
                         const r = test.results || {};
                         const conn = r.connectivity || {};
                         const params = r.stream_parameters || {};
@@ -279,6 +316,8 @@
                                 <td>${params.bitrate_kbps || 'N/A'}</td>
                                 <td>${params.codec || 'N/A'}</td>
                                 <td>${getStatusBadge(vlc.status)}</td>
+                                <td style="text-align: right;">${vlc.connection_time_ms !== null && vlc.connection_time_ms !== undefined ? vlc.connection_time_ms + ' ms' : 'N/A'}</td>
+                                <td style="text-align: right;">${vlc.buffering_events !== null && vlc.buffering_events !== undefined ? vlc.buffering_events : 'N/A'}</td>
                                 <td>${silence.silence_detected ? 'Yes' : 'No'}</td>
                                 <td>${silence.silence_percentage !== null && silence.silence_percentage !== undefined ? silence.silence_percentage.toFixed(1) + '%' : 'N/A'}</td>
                                 <td>${ad.status ? getStatusBadge(ad.status) : 'N/A'}</td>
@@ -287,6 +326,18 @@
                             </tr>
                         `;
                     }).join('');
+                    
+                    // Update pagination info
+                    paginationInfo.textContent = `Showing ${allTests.length} of ${totalTests} tests`;
+                    
+                    // Show/hide load more button
+                    if (hasMore) {
+                        pagination.style.display = 'block';
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.textContent = 'Load More Tests';
+                    } else {
+                        pagination.style.display = 'none';
+                    }
                 }
                 
                 loading.style.display = 'none';
@@ -297,11 +348,20 @@
                 error.style.display = 'block';
                 error.textContent = `Error loading tests: ${err.message}`;
                 console.error('Error loading tests:', err);
+                if (!reset) {
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.textContent = 'Load More Tests';
+                }
             }
         }
 
         // Load tests on page load
-        document.addEventListener('DOMContentLoaded', loadTests);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTests(true);
+            document.getElementById('loadMoreBtn').addEventListener('click', () => {
+                loadTests(false);
+            });
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listening History - Stream Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Listening History</h1>
+            <p>View all listening sessions tracked by the system</p>
+            <nav style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <a href="index.html" style="color: #9d7aff; text-decoration: none; padding: 8px 16px; border: 1px solid #9d7aff; border-radius: 5px; display: inline-block;">Home</a>
+                <a href="history.html" style="color: #9d7aff; text-decoration: none; padding: 8px 16px; border: 1px solid #9d7aff; border-radius: 5px; display: inline-block;">Test History</a>
+                <a href="history_detailed.html" style="color: #9d7aff; text-decoration: none; padding: 8px 16px; border: 1px solid #9d7aff; border-radius: 5px; display: inline-block;">📋 Detailed History</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <div style="margin-bottom: 20px;">
+                    <button type="button" id="refreshBtn" class="btn" style="background: #9d7aff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        🔄 Refresh
+                    </button>
+                    <div style="margin-top: 15px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <label style="color: #e0e0e0;">
+                            <input type="checkbox" id="filterMyIP" style="margin-right: 5px;">
+                            Show only my sessions
+                        </label>
+                        <label style="color: #e0e0e0;">
+                            Filter by URL:
+                            <input type="text" id="urlFilter" placeholder="Enter stream URL..." 
+                                   style="margin-left: 5px; padding: 5px 10px; border: 1px solid #3a3a5c; border-radius: 4px; background: #1a1a2e; color: #e0e0e0; width: 300px;">
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="results-section">
+                <div id="loading" class="loading" style="display: none;">Loading listening history...</div>
+                <div id="error" class="error" style="display: none;"></div>
+                
+                <table id="listeningTable" style="width: 100%; border-collapse: collapse; background: #1a1a2e; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden;">
+                    <thead>
+                        <tr style="background: #2a2a45;">
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">Session ID</th>
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">IP Address</th>
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">Stream URL</th>
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">Start Time</th>
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">End Time</th>
+                            <th style="padding: 12px; text-align: right; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">Duration</th>
+                            <th style="padding: 12px; text-align: center; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">Action</th>
+                            <th style="padding: 12px; text-align: left; color: #9d7aff; border-bottom: 2px solid #3a3a5c;">User Agent</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listeningTableBody">
+                        <tr>
+                            <td colspan="8" style="padding: 20px; text-align: center; color: #b0b0b0;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="listeningPagination" style="margin-top: 20px; text-align: center; display: none;">
+                    <button id="loadMoreListeningBtn" class="btn" style="background: #9d7aff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        Load More Sessions
+                    </button>
+                    <p id="listeningPaginationInfo" style="color: #b0b0b0; margin-top: 10px; font-size: 0.9em;"></p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Configure API URL
+        function getApiBaseUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiParam = urlParams.get('api');
+            
+            if (apiParam) {
+                return apiParam.replace(/\/$/, '') + '/api';
+            }
+            
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:5000/api';
+            }
+            
+            return 'http://YOUR-RASPBERRY-PI-IP:5000/api';
+        }
+
+        const API_BASE_URL = getApiBaseUrl();
+        console.log('API Base URL:', API_BASE_URL);
+
+        let myIPAddress = null;
+        let currentListeningOffset = 0;
+        const listeningPageSize = 50;
+        let allListeningSessions = [];
+        let hasMoreListening = false;
+        let totalListeningSessions = 0;
+
+        // Format duration in seconds to human-readable format
+        function formatDuration(seconds) {
+            if (seconds < 60) {
+                return `${seconds.toFixed(1)}s`;
+            } else if (seconds < 3600) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${minutes}m ${secs}s`;
+            } else {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            }
+        }
+
+        // Format timestamp
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        // Truncate URL for display
+        function truncateUrl(url, maxLength = 50) {
+            if (!url) return 'N/A';
+            if (url.length <= maxLength) return url;
+            return url.substring(0, maxLength - 3) + '...';
+        }
+
+        // Truncate user agent for display
+        function truncateUserAgent(ua, maxLength = 40) {
+            if (!ua) return 'N/A';
+            if (ua.length <= maxLength) return ua;
+            return ua.substring(0, maxLength - 3) + '...';
+        }
+
+        // Load listening history
+        async function loadListeningHistory(reset = true) {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const tableBody = document.getElementById('listeningTableBody');
+            const filterMyIP = document.getElementById('filterMyIP');
+            const urlFilter = document.getElementById('urlFilter');
+            const pagination = document.getElementById('listeningPagination');
+            const loadMoreBtn = document.getElementById('loadMoreListeningBtn');
+            const paginationInfo = document.getElementById('listeningPaginationInfo');
+
+            if (reset) {
+                currentListeningOffset = 0;
+                allListeningSessions = [];
+                loading.style.display = 'block';
+            } else {
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.textContent = 'Loading...';
+            }
+            
+            error.style.display = 'none';
+
+            try {
+                // Build query parameters
+                const params = new URLSearchParams();
+                if (filterMyIP.checked && myIPAddress) {
+                    params.append('ip_address', myIPAddress);
+                }
+                if (urlFilter.value.trim()) {
+                    params.append('stream_url', urlFilter.value.trim());
+                }
+                params.append('limit', listeningPageSize.toString());
+                params.append('offset', currentListeningOffset.toString());
+
+                const response = await fetch(`${API_BASE_URL}/listening/history?${params.toString()}`, {
+                    signal: AbortSignal.timeout(10000)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const sessions = data.sessions || [];
+                
+                // Merge new sessions with existing ones
+                if (sessions.length > 0) {
+                    allListeningSessions = reset ? sessions : [...allListeningSessions, ...sessions];
+                    hasMoreListening = sessions.length === listeningPageSize; // If we got a full page, there might be more
+                    totalListeningSessions = data.total || allListeningSessions.length;
+                    currentListeningOffset += sessions.length;
+                } else if (reset) {
+                    allListeningSessions = [];
+                    hasMoreListening = false;
+                    totalListeningSessions = 0;
+                }
+
+                if (allListeningSessions.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="padding: 20px; text-align: center; color: #b0b0b0;">
+                                No listening sessions found
+                            </td>
+                        </tr>
+                    `;
+                    pagination.style.display = 'none';
+                } else {
+                    tableBody.innerHTML = allListeningSessions.map(session => {
+                        const duration = formatDuration(session.listening_time_seconds);
+                        const startTime = formatTimestamp(session.start_timestamp);
+                        const endTime = formatTimestamp(session.end_timestamp);
+                        const actionColor = session.action_type === 'stop' ? '#dc3545' : '#ffc107';
+                        const isMySession = session.ip_address === myIPAddress;
+
+                        return `
+                            <tr style="border-bottom: 1px solid #3a3a5c;" ${isMySession ? 'style="background: #2a2a3e;"' : ''}>
+                                <td style="padding: 10px; color: #e0e0e0; font-family: monospace; font-size: 0.9em;">
+                                    ${session.session_id}
+                                </td>
+                                <td style="padding: 10px; color: #e0e0e0;">
+                                    <code style="font-size: 0.85em; background: #2a2a45; padding: 2px 6px; border-radius: 3px;">
+                                        ${session.ip_address || 'N/A'}
+                                    </code>
+                                    ${isMySession ? '<span style="color: #9d7aff; margin-left: 5px;">(You)</span>' : ''}
+                                </td>
+                                <td style="padding: 10px; color: #e0e0e0;">
+                                    <code style="font-size: 0.85em; background: #2a2a45; padding: 2px 6px; border-radius: 3px; word-break: break-all;">
+                                        ${truncateUrl(session.stream_url)}
+                                    </code>
+                                </td>
+                                <td style="padding: 10px; color: #b0b0b0; font-size: 0.9em;">
+                                    ${startTime}
+                                </td>
+                                <td style="padding: 10px; color: #b0b0b0; font-size: 0.9em;">
+                                    ${endTime}
+                                </td>
+                                <td style="padding: 10px; text-align: right; color: #4ade80; font-weight: bold;">
+                                    ${duration}
+                                </td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <span style="color: ${actionColor}; font-weight: bold; text-transform: uppercase;">
+                                        ${session.action_type}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px; color: #b0b0b0; font-size: 0.85em;" title="${session.user_agent || 'N/A'}">
+                                    ${truncateUserAgent(session.user_agent)}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    // Update pagination info
+                    paginationInfo.textContent = `Showing ${allListeningSessions.length}${totalListeningSessions > allListeningSessions.length ? ` of ${totalListeningSessions}` : ''} sessions`;
+                    
+                    // Show/hide load more button
+                    if (hasMoreListening) {
+                        pagination.style.display = 'block';
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.textContent = 'Load More Sessions';
+                    } else {
+                        pagination.style.display = 'none';
+                    }
+                }
+
+            } catch (err) {
+                console.error('Error loading listening history:', err);
+                let errorMsg = 'Error loading listening history';
+                if (err.name === 'AbortError' || err.message.includes('timeout')) {
+                    errorMsg = 'Request timed out. API server may be slow or unreachable.';
+                } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                    errorMsg = `Unable to connect to API server at ${API_BASE_URL}. Please check if the server is running.`;
+                } else {
+                    errorMsg = `Error: ${err.message}`;
+                }
+                error.textContent = errorMsg;
+                error.style.display = 'block';
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="padding: 20px; text-align: center; color: #dc3545;">
+                            ${errorMsg}
+                        </td>
+                    </tr>
+                `;
+                if (!reset) {
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.textContent = 'Load More Sessions';
+                }
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Get user's IP address for filtering
+        async function getMyIPAddress() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/requests/stats`, {
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    myIPAddress = data.ip_address;
+                }
+            } catch (err) {
+                console.log('Could not get IP address:', err);
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', async () => {
+            await getMyIPAddress();
+            await loadListeningHistory(true);
+
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                loadListeningHistory(true);
+            });
+            document.getElementById('filterMyIP').addEventListener('change', () => {
+                loadListeningHistory(true);
+            });
+            document.getElementById('urlFilter').addEventListener('input', (e) => {
+                // Debounce the filter
+                clearTimeout(window.urlFilterTimeout);
+                window.urlFilterTimeout = setTimeout(() => {
+                    loadListeningHistory(true);
+                }, 500);
+            });
+            document.getElementById('loadMoreListeningBtn').addEventListener('click', () => {
+                loadListeningHistory(false);
+            });
+        });
+    </script>
+</body>
+</html>
